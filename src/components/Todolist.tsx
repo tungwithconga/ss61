@@ -12,27 +12,23 @@ interface Todolist {
   created_at: Date;
 }
 
-export default function Todolist() {
+const Todolist: React.FC = () => {
   const [tasks, setTasks] = useState<Todolist[]>([]);
   const [newTask, setNewTask] = useState('');
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState<'Tất cả' | 'Đang làm' | 'Hoàn thành'>('Tất cả');
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [editedTaskName, setEditedTaskName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     axios.get("http://localhost:8080/todoList")
       .then(response => {
-        setTimeout(() => {
-          const sortedTasks = response.data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          setTasks(sortedTasks);
-          setLoading(false);
-        }, 1000);
+        const sortedTasks = response.data.sort((a: Todolist, b: Todolist) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setTasks(sortedTasks);
+        setLoading(false);
       })
       .catch(error => {
-        console.error("There was an error fetching the todo list!", error);
+        console.error("Đã xảy ra lỗi khi lấy danh sách công việc!", error);
         setLoading(false);
       });
   }, []);
@@ -42,7 +38,7 @@ export default function Todolist() {
     if (newTask.trim() === '') return;
 
     if (tasks.some(task => task.name === newTask.trim())) {
-      swal("Error", "Task name already exists!", "error");
+      swal("Lỗi", "Tên công việc đã tồn tại!", "error");
       return;
     }
 
@@ -50,12 +46,11 @@ export default function Todolist() {
     axios.post("http://localhost:8080/todoList", newTaskObj)
       .then(response => {
         setTasks([...tasks, response.data]);
+        setNewTask('');
       })
       .catch(error => {
-        console.error("There was an error adding the new task!", error);
+        console.error("Đã xảy ra lỗi khi thêm công việc mới!", error);
       });
-
-    setNewTask('');
   };
 
   const handleToggleTask = (id: number) => {
@@ -63,20 +58,19 @@ export default function Todolist() {
     if (!task) return;
 
     const updatedTask = { ...task, completed: !task.completed };
-
     axios.put(`http://localhost:8080/todoList/${id}`, updatedTask)
       .then(response => {
         setTasks(tasks.map(task => task.id === id ? response.data : task));
       })
       .catch(error => {
-        console.error("There was an error updating the task!", error);
+        console.error("Đã xảy ra lỗi khi cập nhật công việc!", error);
       });
   };
 
-  const handleDeleteTodo = (id: number) => {
+  const handleDeleteTask = (id: number) => {
     swal({
-      title: "Are you sure?",
-      text: "Once deleted, you will not be able to recover this task!",
+      title: "Bạn có chắc chắn?",
+      text: "Khi xóa, bạn sẽ không thể khôi phục lại công việc này!",
       icon: "warning",
       buttons: true,
       dangerMode: true,
@@ -86,27 +80,29 @@ export default function Todolist() {
         axios.delete(`http://localhost:8080/todoList/${id}`)
           .then(() => {
             setTasks(tasks.filter(task => task.id !== id));
-            setShowModal(false);
-            swal("Poof! Your task has been deleted!", {
+            swal("Đã xóa công việc của bạn!", {
               icon: "success",
             });
           })
           .catch(error => {
-            console.error("There was an error deleting the task!", error);
+            console.error("Đã xảy ra lỗi khi xóa công việc!", error);
           });
       } else {
-        swal("Your task is safe!");
+        swal("Công việc của bạn vẫn an toàn!");
       }
     });
   };
 
-  const handleEditTodo = (id: number, name: string) => {
+  const handleEditTask = (id: number, name: string) => {
     setEditingTaskId(id);
     setEditedTaskName(name);
   };
 
   const handleSaveEdit = (id: number) => {
-    const updatedTask = { ...tasks.find(task => task.id === id), name: editedTaskName };
+    const task = tasks.find(task => task.id === id);
+    if (!task) return;
+
+    const updatedTask = { ...task, name: editedTaskName };
 
     axios.put(`http://localhost:8080/todoList/${id}`, updatedTask)
       .then(response => {
@@ -115,20 +111,15 @@ export default function Todolist() {
         setEditedTaskName('');
       })
       .catch(error => {
-        console.error("There was an error saving the edited task!", error);
+        console.error("Đã xảy ra lỗi khi lưu công việc chỉnh sửa!", error);
       });
   };
 
   const filteredTasks = tasks.filter(task => {
-    if (filter === 'Active') return !task.completed;
-    if (filter === 'Completed') return task.completed;
+    if (filter === 'Đang làm') return !task.completed;
+    if (filter === 'Hoàn thành') return task.completed;
     return true;
   });
-
-  const openModal = (id: number) => {
-    setDeleteId(id);
-    setShowModal(true);
-  };
 
   return (
     <div>
@@ -142,61 +133,36 @@ export default function Todolist() {
                     <div className="form-outline flex-fill">
                       <input
                         type="text"
-                        id="form2"
                         className="form-control"
                         value={newTask}
                         onChange={(e) => setNewTask(e.target.value)}
+                        placeholder="Công việc mới..."
                       />
-                      <label className="form-label" htmlFor="form2">
-                        New task...
-                      </label>
                     </div>
-                    <button type="submit" className="btn btn-info ms-2">
-                      Add
-                    </button>
+                    <button type="submit" className="btn btn-info ms-2">Thêm</button>
                   </form>
 
-                  <ul className="nav nav-tabs mb-4 pb-2" id="ex1" role="tablist">
-                    <li className="nav-item" role="presentation">
-                      <a
-                        className={`nav-link ${filter === 'All' ? 'active' : ''}`}
-                        onClick={() => setFilter('All')}
-                        role="tab"
-                        aria-selected={filter === 'All'}
-                      >
-                        All
-                      </a>
-                    </li>
-                    <li className="nav-item" role="presentation">
-                      <a
-                        className={`nav-link ${filter === 'Active' ? 'active' : ''}`}
-                        onClick={() => setFilter('Active')}
-                        role="tab"
-                        aria-selected={filter === 'Active'}
-                      >
-                        Active
-                      </a>
-                    </li>
-                    <li className="nav-item" role="presentation">
-                      <a
-                        className={`nav-link ${filter === 'Completed' ? 'active' : ''}`}
-                        onClick={() => setFilter('Completed')}
-                        role="tab"
-                        aria-selected={filter === 'Completed'}
-                      >
-                        Completed
-                      </a>
-                    </li>
+                  <ul className="nav nav-tabs mb-4 pb-2">
+                    {['Tất cả', 'Đang làm', 'Hoàn thành'].map(status => (
+                      <li key={status} className="nav-item">
+                        <button
+                          className={`nav-link ${filter === status ? 'active' : ''}`}
+                          onClick={() => setFilter(status as 'Tất cả' | 'Đang làm' | 'Hoàn thành')}
+                        >
+                          {status}
+                        </button>
+                      </li>
+                    ))}
                   </ul>
 
                   {loading ? (
                     <div className="text-center">
                       <div className="spinner-border" role="status">
-                        <span className="visually-hidden">Loading...</span>
+                        <span className="visually-hidden">Đang tải...</span>
                       </div>
                     </div>
-                                      ) : (
-                    <div className="tab-content"style={{ maxHeight: "250px", overflowY: "auto" }}>
+                  ) : (
+                    <div className="tab-content" style={{ maxHeight: "250px", overflowY: "auto" }}>
                       <div className="tab-pane fade show active">
                         <ul className="list-group mb-0">
                           {filteredTasks.map(task => (
@@ -232,12 +198,12 @@ export default function Todolist() {
                               <div style={{ display: "flex", gap: "20px" }}>
                                 {editingTaskId === task.id ? (
                                   <button onClick={() => handleSaveEdit(task.id)} className="btn btn-success btn-sm">
-                                    Save
+                                    Lưu
                                   </button>
                                 ) : (
                                   <>
-                                    <button onClick={() => handleEditTodo(task.id, task.name)} className="fa-solid fa-pen"></button>
-                                    <button onClick={() => handleDeleteTodo(task.id)} className="fa-solid fa-trash"></button>
+                                    <button onClick={() => handleEditTask(task.id, task.name)} className="fa-solid fa-pen" aria-label="Chỉnh sửa"></button>
+                                    <button onClick={() => handleDeleteTask(task.id)} className="fa-solid fa-trash" aria-label="Xóa"></button>
                                   </>
                                 )}
                               </div>
@@ -255,6 +221,6 @@ export default function Todolist() {
       </section>
     </div>
   );
-}
+};
 
-                 
+export default Todolist;
